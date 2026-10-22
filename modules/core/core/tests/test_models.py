@@ -1,0 +1,300 @@
+from secrets import token_hex
+from unittest.mock import MagicMock
+
+from django.core.cache import cache, caches
+from django.core.exceptions import ValidationError
+from django.test import TestCase
+
+from core.models import User, TechnicalUser, InteractiveUser
+from core.models.history_model import HistoryModel
+from core.models.user import Language
+from core.utils import get_cache_key, clear_current_user, clear_history_context
+from core.test_helpers import create_test_interactive_user, create_test_role
+
+
+def _test_password():
+    """Generated, so no password-shaped literal ends up in the repository."""
+    return token_hex(16) + "Aa1!"
+
+
+class UserTestCase(TestCase):
+    def setUp(self):
+        clear_current_user()
+        clear_history_context()
+        caches["default"].clear()
+        super().setUp()
+
+    def tearDown(self):
+        clear_current_user()
+        clear_history_context()
+        caches["default"].clear()
+        super().tearDown()
+
+    def test_t_user_active_status(self):
+        always_valid = User(
+            username="always_valid", t_user=TechnicalUser(username="always_valid")
+        )
+        self.assertTrue(always_valid.is_active)
+
+        import datetime
+
+        not_yet_active = User(
+            username="not_yet_active",
+            t_user=TechnicalUser(
+                username="not_yet_active",
+                validity_from=datetime.datetime.now() + datetime.timedelta(days=1),
+            ),
+        )
+        self.assertFalse(not_yet_active.is_active)
+
+        not_active_anymore = User(
+            username="not_active_anymore",
+            t_user=TechnicalUser(
+                username="not_active_anymore",
+                validity_to=datetime.datetime.now() + datetime.timedelta(days=-1),
+            ),
+        )
+        self.assertFalse(not_active_anymore.is_active)
+
+    def test_interactive_user_bulk_operations_and_cache(self):
+        """Test InteractiveUser.objects.bulk_create and bulk_update with cache functionality"""
+        # Clear cache to ensure clean state
+        cache.clear()
+
+        # Get or create a language for testing
+        language, _ = Language.objects.get_or_create(
+            code="en",
+            defaults={"name": "English", "sort_order": 1}
+        )
+
+        # Create test user for audit fields
+        User.objects.create(
+            username="test_admin",
+        )
+
+        # Test bulk_create
+        users_to_create = [
+            InteractiveUser(
+                login_name=f"bulk_user_{i}",
+                last_name=f"User{i}",
+                other_names=f"Bulk{i}",
+                language=language,
+                email=f"user{i}@example.com"
+            )
+            for i in range(1, 4)
+        ]
+
+        # Perform bulk create
+        InteractiveUser.USE_CACHE = True
+        InteractiveUser.objects.bulk_create(users_to_create)
+
+        # Retrieve created users from database
+        created_users = []
+        for i in range(1, 4):
+            user = InteractiveUser.objects.get(login_name=f"bulk_user_{i}")
+            created_users.append(user)
+
+        # Verify users were created
+        self.assertEqual(len(created_users), 3)
+        for i, user in enumerate(created_users, 1):
+            self.assertEqual(user.login_name, f"bulk_user_{i}")
+            self.assertEqual(user.version, 1)
+
+        # Verify cache was updated for created users
+        for user in created_users:
+            cache_key = get_cache_key(InteractiveUser, user.id)
+            cached_data = cache.get(cache_key)
+            self.assertIsNotNone(cached_data, f"Cache not updated for user {user.id}")
+            self.assertEqual(cached_data['login_name'], user.login_name)
+
+            # Check secondary cache (by login_name)
+            secondary_cache_key = get_cache_key(InteractiveUser, user.login_name.lower())
+            secondary_cached = cache.get(secondary_cache_key)
+            self.assertIsNotNone(secondary_cached, f"Secondary cache not updated for user {user.login_name}")
+            self.assertEqual(secondary_cached, user.id)
+
+        # Test bulk_update
+        users_to_update = created_users[:2]  # Update first 2 users
+        update_fields = ['phone', 'email']
+
+        # Modify fields
+        for i, user in enumerate(users_to_update):
+            user.phone = f"123-456-789{i}"
+            user.email = f"updated_user{i}@example.com"
+
+        # Perform bulk update
+        InteractiveUser.objects.bulk_update(users_to_update, update_fields)
+
+        # Refresh from database and verify updates
+        for i, user in enumerate(users_to_update):
+            user.refresh_from_db()
+            self.assertEqual(user.phone, f"123-456-789{i}")
+            self.assertEqual(user.email, f"updated_user{i}@example.com")
+            self.assertEqual(user.version, 2)  # Version should be incremented
+
+        # Verify cache was updated after bulk update
+        for user in users_to_update:
+            cache_key = get_cache_key(InteractiveUser, user.id)
+            cached_data = cache.get(cache_key)
+            self.assertIsNotNone(cached_data, f"Cache not updated after bulk update for user {user.id}")
+            self.assertEqual(cached_data['phone'], user.phone)
+            self.assertEqual(cached_data['email'], user.email)
+
+        # Verify history was created
+        for user in created_users:
+            # Check that historical records exist
+            historical_count = user.history.count()
+            # Should have at least 1 historical record (creation)
+            # and updated users should have 2 (creation + update)
+            expected_history = 2 if user in users_to_update else 1
+            self.assertEqual(
+                historical_count, expected_history,
+                f"User {user.login_name} should have {expected_history} historical records"
+            )
+
+    def test_i_active_status(self):
+        always_valid = User(
+            username="always_valid", i_user=InteractiveUser(login_name="always_valid")
+        )
+        self.assertTrue(always_valid.is_active)
+
+        import datetime
+        # user is not business history yet
+        # not_yet_active = User(
+        #     username="always_valid",
+        #     i_user=InteractiveUser(
+        #         login_name="not_yet_active",
+        #         validity_from=datetime.datetime.now() + datetime.timedelta(days=1),
+        #     ),
+        # )
+        # self.assertFalse(not_yet_active.is_active)
+
+        not_active_anymore = User(
+            username="always_valid",
+            i_user=InteractiveUser(
+                login_name="not_active_anymore",
+                active=False,
+                date_deactivated=datetime.datetime.now() + datetime.timedelta(days=-1),
+            ),
+        )
+        self.assertFalse(not_active_anymore.is_active)
+
+    def test_set_password_generates_a_distinct_salt_per_call(self):
+        # The salt used to be a default argument, evaluated once at import, so
+        # every user whose password was set in one process shared it - and with
+        # it the per-user JWT signing key.
+        raw = _test_password()
+        first = InteractiveUser(login_name="salt_first")
+        second = InteractiveUser(login_name="salt_second")
+
+        first.set_password(raw)
+        second.set_password(raw)
+
+        self.assertNotEqual(first.private_key, second.private_key)
+        self.assertNotEqual(first.password, second.password)
+        self.assertTrue(first.check_password(raw))
+        self.assertTrue(second.check_password(raw))
+
+    def test_set_password_honours_an_explicit_salt(self):
+        # create_test_interactive_user passes the salt to keep it stable.
+        raw = _test_password()
+        salt = token_hex(16)
+        user = InteractiveUser(login_name="salt_explicit")
+
+        user.set_password(raw, private_key=salt)
+
+        self.assertEqual(user.private_key, salt)
+        self.assertTrue(user.check_password(raw))
+
+
+class SaveNoOpTestCase(TestCase):
+    """Re-saving an existing instance with no dirty fields must be a silent no-op:
+    no ValidationError, no version bump, no new history row.
+
+    Guards both base-class save() implementations:
+      - core.models.openimis_model.OpenIMISHistoryMixin.save (covered end-to-end via InteractiveUser)
+      - core.models.history_model.HistoryModel.save (covered via direct MagicMock invocation,
+        since core has no concrete HistoryBusinessModel subclass)
+    """
+
+    def test_openimis_model_save_is_noop_when_not_dirty(self):
+        cache.clear()
+        language, _ = Language.objects.get_or_create(
+            code="en", defaults={"name": "English", "sort_order": 1}
+        )
+        user = InteractiveUser.objects.create(
+            login_name="noop_save_user",
+            last_name="NoOp",
+            other_names="Test",
+            language=language,
+        )
+        baseline_version = user.version
+        baseline_history_count = user.history.count()
+
+        result = user.save(silent=True)
+
+        self.assertIsNone(result)
+        user.refresh_from_db()
+        self.assertEqual(user.version, baseline_version)
+        self.assertEqual(user.history.count(), baseline_history_count)
+
+    def test_history_model_save_is_noop_when_not_dirty(self):
+        instance = MagicMock()
+        instance.id = "existing-id"
+        instance.version = 7
+        instance.is_dirty.return_value = False
+
+        try:
+            result = HistoryModel.save(instance)
+        except ValidationError:
+            self.fail("HistoryModel.save should not raise on a no-op save")
+
+        self.assertIsNone(result)
+        self.assertEqual(instance.version, 7)
+        instance.is_dirty.assert_called_with(check_relationship=True)
+
+    def test_has_perms_superuser(self):
+        """Test has_perms with superuser bypass"""
+        user = create_test_interactive_user(username="superuser_test", custom_props={"is_superuser": True})
+        self.assertTrue(user.has_perms([123]))  # Superuser always passes
+        self.assertTrue(user.has_perms([]))  # Empty list passes
+        # Cleanup
+
+    def test_has_perms_empty_list(self):
+        """Test has_perms with empty permission list"""
+        user = create_test_interactive_user(username="regular_user_test")
+        self.assertTrue(user.has_perms([]))  # Empty list always True
+        # Cleanup
+
+    def test_has_perms_or_logic(self):
+        """Test has_perms with OR logic (default) and integer perms"""
+        # Create role with specific permissions
+        role = create_test_role(perm_names=["gql_query_insuree_perms"], name="TestRolePerms")
+        user = create_test_interactive_user(username="testuser_perms", roles=[role.id])
+
+        if user.rights:
+            right_id = user.rights[0]  # Get an integer right ID
+            # Test integer perm
+            self.assertTrue(user.has_perms([right_id]))  # Has the right
+            # Test string perm
+            self.assertTrue(user.has_perms([str(right_id)]))  # String version works
+            # Test OR: has at least one
+            self.assertTrue(user.has_perms([right_id, 999]))  # Has one matching
+            # Test no match
+            self.assertFalse(user.has_perms([999]))  # No matching rights
+        else:
+            self.fail("User has no rights assigned")
+
+    def test_has_perms_and_logic(self):
+        """Test has_perms with AND logic and integer perms"""
+        # Create role with multiple permissions
+        role = create_test_role(perm_names=["gql_query_insuree_perms", "gql_mutation_create_insurees_perms"], name="TestRoleAnd")
+        user = create_test_interactive_user(username="testuser_and", roles=[role.id])
+
+        if len(user.rights) >= 2:
+            right1, right2 = user.rights[:2]
+            # Test AND: needs all
+            self.assertTrue(user.has_perms([right1, right2], list_evaluation_or=False))  # Has both
+            self.assertFalse(user.has_perms([right1, 999], list_evaluation_or=False))  # Missing one
+        else:
+            self.fail("User does not have enough rights for AND test")
