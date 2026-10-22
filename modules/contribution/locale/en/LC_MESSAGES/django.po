@@ -1,0 +1,56 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2021-02-08 00:54+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: contribution/gql_mutations.py:60
+msgid "policy_uuid_required"
+msgstr "The policy UUID is required"
+
+#: contribution/gql_mutations.py:63
+msgid "policy_uuid_not_found"
+msgstr "The policy UUID was not found"
+
+#: contribution/gql_mutations.py:108 contribution/gql_mutations.py:137
+msgid "mutation.authentication_required"
+msgstr "User needs to be authenticated for this operation"
+
+#: contribution/gql_mutations.py:110 contribution/gql_mutations.py:139
+#: contribution/gql_mutations.py:163 contribution/schema.py:32
+#: contribution/schema.py:54
+msgid "unauthorized"
+msgstr "User not authorized for this operation"
+
+#: contribution/gql_mutations.py:117
+msgid "contribution.mutation.failed_to_create_premium"
+msgstr "Failed to create the premium"
+
+#: contribution/gql_mutations.py:144
+msgid "contribution.mutation.failed_to_update_premium"
+msgstr "Failed to update the premium %(id)s"
+
+#: contribution/gql_mutations.py:173
+msgid "contribution.validation.id_does_not_exist"
+msgstr "Contribution with id %(id)s does not exist"
+
+#: contribution/gql_mutations.py:191
+msgid "contribution.mutation.failed_to_delete_premium"
+msgstr "Failed to delete premium %(uuid)s"
+
+#: contribution/schema.py:67
+msgid "premium.mutation.failed_to_delete_premium"
+msgstr "Failed to delete premium %(uuid)s"
