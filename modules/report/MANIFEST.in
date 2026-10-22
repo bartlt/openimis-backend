@@ -1,0 +1,5 @@
+include LICENSE.md
+include README.md
+include report/templates
+recursive-include report/ *.html
+recursive-include report/static/ *
