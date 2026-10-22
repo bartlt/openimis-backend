@@ -1,11 +1,11 @@
 # openIMIS backend: consolidated demo repo
 
-This repo combines the openIMIS backend assembly ([openimis/openimis-be_py](https://github.com/openimis/openimis-be_py)) and 16 of its module repos into a single repository. With one repo, a cross-module upgrade becomes one branch, one PR and one CI run. Upstream openIMIS keeps each module in its own repo, so you can't merge changes from here back upstream as they are; you'd have to split them into per-module PRs first.
+This repo combines the openIMIS backend assembly ([openimis/openimis-be_py](https://github.com/openimis/openimis-be_py)) and 20 of its module repos into a single repository. With one repo, a cross-module upgrade becomes one branch, one PR and one CI run. Upstream openIMIS keeps each module in its own repo, so you can't merge changes from here back upstream as they are; you'd have to split them into per-module PRs first.
 
 - **Assembly:** at the repo root, imported from `openimis-be_py@develop` with its full history.
-- **Modules:** under `modules/<name>/`, each imported with `git subtree` from `openimis-be-<name>_py@develop` with its full history. The set is `core`, `insuree`, `policy` and `claim`, plus every module those import.
-- **`openimis.json`:** installs the 16 modules from `modules/` as editable packages. The original 43-module manifest is kept as `openimis.upstream.json`.
-- **CI:** `.github/workflows/ci_assembly.yml` runs the test suite of all 16 modules against the `ghcr.io/openimis/openimis-pgsql:develop` Postgres image. Upstream's Sonar, Docker-publish and per-module reusable workflows are removed because they don't apply here.
+- **Modules:** under `modules/<name>/`, each imported with `git subtree` from `openimis-be-<name>_py@develop` with its full history. The set is `core`, `insuree`, `policy` and `claim`, plus every module those import, plus the modules their tests need (`payment`, `policyholder`, `contract`, `calcrule_contribution_income_percentage`).
+- **`openimis.json`:** installs the 20 modules from `modules/` as editable packages. The original 43-module manifest is kept as `openimis.upstream.json`.
+- **CI:** `.github/workflows/ci_assembly.yml` runs the test suite of all 20 modules against the `ghcr.io/openimis/openimis-pgsql:develop` Postgres image. Upstream's Sonar, Docker-publish and per-module reusable workflows are removed because they don't apply here.
 
 ## Local quick start (Python 3.11)
 

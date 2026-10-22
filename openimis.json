@@ -41,6 +41,10 @@
             "pip": "-e ../modules/payer"
         },
         {
+            "name": "payment",
+            "pip": "-e ../modules/payment"
+        },
+        {
             "name": "claim",
             "pip": "-e ../modules/claim"
         },
@@ -61,8 +65,20 @@
             "pip": "-e ../modules/contribution_plan"
         },
         {
+            "name": "policyholder",
+            "pip": "-e ../modules/policyholder"
+        },
+        {
+            "name": "contract",
+            "pip": "-e ../modules/contract"
+        },
+        {
             "name": "invoice",
             "pip": "-e ../modules/invoice"
+        },
+        {
+            "name": "calcrule_contribution_income_percentage",
+            "pip": "-e ../modules/calcrule_contribution_income_percentage"
         }
     ]
 }
