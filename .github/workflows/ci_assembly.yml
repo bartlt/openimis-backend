@@ -47,24 +47,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
-      opensearch:
-        image: opensearchproject/opensearch:latest
-        ports:
-          - 9200:9200
-        env:
-          discovery.type: single-node
-          cluster.name: my_opensearch_local
-          http.port: 9200
-          plugins.security.ssl.http.enabled: false
-          # No security plugin, so no admin credential; the demo installer has
-          # to be skipped or it demands one anyway.
-          plugins.security.disabled: true
-          DISABLE_INSTALL_DEMO_CONFIG: true
-        options: >-
-          --health-cmd "curl -f http://localhost:9200/_cluster/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -73,27 +55,21 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.0
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-            ${{ runner.os }}-pip-
-            ${{ runner.os }}-
+          enable-cache: true
+          cache-dependency-glob: |
+            requirements.txt
+            modules/*/setup.py
 
       - name: Install Python dependencies
         working-directory: ./script
+        # apscheduler 3.10 imports pkg_resources, which setuptools 81 removed.
         run: |
-          sudo apt-get update
-          sudo apt-get install jq
-          python -m pip install --upgrade pip
-          pip install -r ../requirements.txt
+          uv pip install --system "setuptools<81" -r ../requirements.txt
           python modules-requirements.py ../openimis.json > modules-requirements.txt
-          pip install --no-cache-dir -r modules-requirements.txt
-          export MODULES=$(jq -r '(.modules[].name)' openimis.json | xargs)
-          echo $modules
+          uv pip install --system -r modules-requirements.txt
 
       - name: Environment info
         run: |
@@ -179,10 +155,9 @@ jobs:
           #DEV_SERVER: true
           SITE_ROOT: api
           CI_EXCLUDED_MODULE: ${{ vars.CI_EXCLUDED_MODULE }}
-          OPENSEARCH_ADMIN: admin
-          OPENSEARCH_PASSWORD: ""
-          OPEN_SEARCH_HTTP_PORT: 9200
-          OPENSEARCH_HOSTS: "localhost:9200"
+          # No OpenSearch service: none of these tests query it, so only
+          # disable the index sync that would otherwise try to connect.
+          OPENSEARCH_DSL_AUTOSYNC: "False"
 
       # - name: Django tests MSSQL
       #   working-directory: ./openIMIS
