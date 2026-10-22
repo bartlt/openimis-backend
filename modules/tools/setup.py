@@ -27,7 +27,7 @@ setup(
         "pyminizip",
         "pyzipper",
         "defusedxml",
-        "tablib",
+        "tablib[xls,xlsx]",
         "django-import-export",
     ],
     classifiers=[

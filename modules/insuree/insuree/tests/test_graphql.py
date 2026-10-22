@@ -29,7 +29,7 @@ from insuree.test_helpers import (
 from graphql_jwt.shortcuts import get_token
 from location.test_helpers import assign_user_districts, create_basic_test_locations, create_test_village
 from rest_framework import status
-from insuree.models import Family
+from insuree.models import Family, Insuree
 
 from insuree.apps import InsureeConfig
 from unittest.mock import patch
@@ -479,13 +479,42 @@ query GetInsureeInquire($chfId: String) {
               }
               ''',
             headers={"HTTP_AUTHORIZATION": f"Bearer {self.admin_token}"},
-            variables={"insuranceNumber": "070707070"})
+            variables={"insuranceNumber": "070707071"})
 
         content = json.loads(response.content)
 
         # This validates the status code and if you get errors
         self.assertResponseNoErrors(response)
         self.assertTrue(content['data']['insureeNumberValidity']['isValid'])
+
+    def test_validate_number_taken_with_variables(self):
+        InsureeConfig.insuree_number_validator = None
+        InsureeConfig.insuree_number_max_length = 9
+        InsureeConfig.insuree_number_min_length = 9
+        InsureeConfig.insuree_number_modulo_root = None
+        taken_number = "070707070"
+        self.assertTrue(Insuree.objects.filter(chf_id=taken_number, validity_to__isnull=True).exists())
+        response = self.query(
+            '''
+              query ($insuranceNumber: String!) {
+                insureeNumberValidity(insureeNumber: $insuranceNumber) {
+                  isValid
+                  errorCode
+                  errorMessage
+                }
+              }
+              ''',
+            headers={"HTTP_AUTHORIZATION": f"Bearer {self.admin_token}"},
+            variables={"insuranceNumber": taken_number})
+
+        content = json.loads(response.content)
+
+        self.assertResponseNoErrors(response)
+        self.assertFalse(content['data']['insureeNumberValidity']['isValid'])
+        self.assertEqual(
+            content['data']['insureeNumberValidity']['errorCode'],
+            InsureeConfig.validation_code_taken_insuree_number,
+        )
 
     def test_insuree_officers_query(self):
         # Enable contextual filtering in the configuration

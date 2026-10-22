@@ -13,6 +13,7 @@ from contribution_plan.tests.helpers import (
 )
 from core.models import User
 from core.test_helpers import create_test_interactive_user
+from django.apps import apps
 from django.test import TestCase
 from policy.test_helpers import create_test_policy
 from policyholder.tests.helpers import (
@@ -447,18 +448,12 @@ class CalculationContractTest(TestCase):
 
     def test_get_linked_class(self):
         result = get_linked_class(["PolicyHolderInsuree"])
-        self.assertEqual(
-            sorted(
-                [
-                    "PolicyHolder",
-                    "Insuree",
-                    "ContributionPlanBundle",
-                    "Policy",
-                    "Calculation",
-                ]
-            ),
-            sorted(result),
-        )
+        expected = ["PolicyHolder", "Insuree", "ContributionPlanBundle", "Policy"]
+        # calcrule_validations links every class to "Calculation"; it is an
+        # optional module, so only expect that link when it is installed.
+        if apps.is_installed("calcrule_validations"):
+            expected.append("Calculation")
+        self.assertEqual(sorted(expected), sorted(result))
 
     def test_get_param_and_amount_calculation(self):
         # create contract to test 1st calculation rule contribution valuation
