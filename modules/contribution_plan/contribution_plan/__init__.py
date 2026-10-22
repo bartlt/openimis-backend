@@ -1,0 +1,1 @@
+default_app_config = 'contribution_plan.apps.ContributionPlanConfig'
