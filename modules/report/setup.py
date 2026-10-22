@@ -26,7 +26,6 @@ setup(
         "nepalicalendar",
         "openimis-be-core",
         "reportbro-lib",
-        "reportbro-fpdf",
     ],
     classifiers=[
         "Environment :: Web Environment",
