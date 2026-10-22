@@ -1,3 +1,30 @@
+# openIMIS backend: consolidated demo repo
+
+This repo combines the openIMIS backend assembly ([openimis/openimis-be_py](https://github.com/openimis/openimis-be_py)) and 16 of its module repos into a single repository. With one repo, a cross-module upgrade becomes one branch, one PR and one CI run. Upstream openIMIS keeps each module in its own repo, so you can't merge changes from here back upstream as they are; you'd have to split them into per-module PRs first.
+
+- **Assembly:** at the repo root, imported from `openimis-be_py@develop` with its full history.
+- **Modules:** under `modules/<name>/`, each imported with `git subtree` from `openimis-be-<name>_py@develop` with its full history. The set is `core`, `insuree`, `policy` and `claim`, plus every module those import.
+- **`openimis.json`:** installs the 16 modules from `modules/` as editable packages. The original 43-module manifest is kept as `openimis.upstream.json`.
+- **CI:** `.github/workflows/ci_assembly.yml` runs the test suite of all 16 modules against the `ghcr.io/openimis/openimis-pgsql:develop` Postgres image. Upstream's Sonar, Docker-publish and per-module reusable workflows are removed because they don't apply here.
+
+## Local quick start (Python 3.11)
+
+```bash
+docker run -d --name oi-pg -p 5432:5432 -e POSTGRES_DB=test_imis -e POSTGRES_USER=postgres \
+  -e 'POSTGRES_PASSWORD=YourStrong!Passw0rd' ghcr.io/openimis/openimis-pgsql:develop
+uv venv -p 3.11 .venv && source .venv/bin/activate
+uv pip install "setuptools<81" -r requirements.txt
+(cd script && python modules-requirements.py ../openimis.json > modules-requirements.txt && uv pip install -r modules-requirements.txt)
+cd openIMIS
+export SECRET_KEY=secret MODE=DEV DB_DEFAULT=postgresql DB_HOST=localhost DB_PORT=5432 \
+  DB_NAME=test_imis DB_TEST_NAME=test_imis DB_USER=postgres 'DB_PASSWORD=YourStrong!Passw0rd' SITE_ROOT=api
+python manage.py test --keepdb core insuree policy claim   # or all modules listed in ../openimis.json
+```
+
+`setuptools<81` is needed because `apscheduler` 3.10 still imports `pkg_resources`.
+
+---
+
 # Environment Variables
 
 | ENV | Values | Description |
