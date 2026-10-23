@@ -1,0 +1,12 @@
+# Screen: Locations: districts the logged-in user may access
+# Source: openimis-fe-location_js@develop src/actions.js fetchUserDistricts
+# Variables: none (filter values are written inline in the query text, as the frontend builds it)
+query GetUserDistricts {
+  userDistricts {
+    id
+    uuid
+    code
+    name
+    parent{id, uuid, code, name}
+  }
+}

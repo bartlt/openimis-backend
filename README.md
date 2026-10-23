@@ -23,6 +23,8 @@ python manage.py test --keepdb core insuree policy claim   # or all modules list
 
 `setuptools<81` is needed because `apscheduler` 3.10 still imports `pkg_resources`.
 
+To check that an upgrade doesn't change what the web app gets from the API, see [`tools/api_snapshot`](tools/api_snapshot/README.md).
+
 ---
 
 # Environment Variables

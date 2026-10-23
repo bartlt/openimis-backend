@@ -1,0 +1,8 @@
+# Screen: Login / permissions: module permission catalogue loaded at start-up
+# Source: openimis-fe-core_js@develop src/actions.jsx fetchModulesPermissions
+# Variables: none (filter values are written inline in the query text, as the frontend builds it)
+query GetModulesPermissions {
+  modulesPermissions {
+    modulePermsList{moduleName, permissions{permsName, permsValue}}
+  }
+}

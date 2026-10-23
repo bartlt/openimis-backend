@@ -1,0 +1,4 @@
+# Screen: Login: logged-in user profile and permission (rights) list
+# Source: openimis-fe-core_js@develop src/actions.jsx loadUser (called right after the tokenAuth login mutation)
+# Variables: none
+GET /core/users/current_user/
