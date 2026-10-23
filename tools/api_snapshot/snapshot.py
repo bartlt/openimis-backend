@@ -15,6 +15,7 @@ import io
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -50,6 +51,8 @@ ENV_DEFAULTS = {
 VOLATILE_KEYS = {"token", "refreshToken", "refresh_token", "csrfToken", "refreshExpiresIn",
                  "last_login", "lastLogin", "age"}
 VOLATILE = "<volatile>"
+# Any operation keyword at the start of a line (also after fragments) makes the file not read-only.
+READ_ONLY_VIOLATION = re.compile(r"^\s*(mutation|subscription)\b", re.MULTILINE)
 
 
 def parse_args():
@@ -141,12 +144,18 @@ def main():
     from django.test import Client
 
     # Module packages are editable installs bound to one checkout: make sure this Python
-    # really runs the code of --repo and not some other worktree.
-    import core
-    core_path = Path(core.__file__).resolve()
-    if repo not in core_path.parents:
-        sys.exit(f"error: this Python loads openIMIS modules from {core_path.parent.parent}, not from {repo}.\n"
-                 f"Run snapshot.py with {repo}/.venv/bin/python (see tools/api_snapshot/README.md).")
+    # really runs the code of --repo (every module of its manifest) and not some other worktree.
+    from django.apps import apps
+    manifest_path = repo / "openimis.json"
+    module_names = [m["name"] for m in json.loads(manifest_path.read_text())["modules"]]
+    foreign = []
+    for name in module_names:
+        module_path = Path(apps.get_app_config(name).path).resolve() if apps.is_installed(name) else None
+        if module_path is None or repo not in module_path.parents:
+            foreign.append(f"{name}: {module_path or 'not installed'}")
+    if foreign:
+        sys.exit(f"error: this Python doesn't load these openIMIS modules from {repo}:\n  " + "\n  ".join(foreign)
+                 + f"\nRun snapshot.py with {repo}/.venv/bin/python (see tools/api_snapshot/README.md).")
     t_setup = time.perf_counter() - t0
 
     site_root = os.environ["SITE_ROOT"].strip("/")
@@ -188,8 +197,8 @@ def main():
             with contextlib.redirect_stdout(sink) if quiet else contextlib.nullcontext():
                 resp = client.get(f"{api}{path.strip()}", HTTP_AUTHORIZATION=f"Bearer {token}")
         else:
-            if q["body"].lstrip().startswith("mutation"):
-                sys.exit(f"error: {q['name']}: mutations are not allowed")
+            if READ_ONLY_VIOLATION.search(q["body"]):
+                sys.exit(f"error: {q['name']}: only queries are allowed (no mutation/subscription)")
             resp = post_graphql(q["body"], q["variables"], token)
         elapsed = time.perf_counter() - start
         try:

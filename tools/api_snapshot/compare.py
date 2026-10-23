@@ -69,10 +69,17 @@ def same_json(a, b):
     return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
 
 
+def compared_part(snap):
+    """Only the API's answer is compared; labels such as `screen` are not."""
+    return {"http_status": snap.get("http_status"), "response": snap.get("response")}
+
+
 def failed(snap):
     """A query that errored can't prove anything, even if both sides error the same way."""
     response = snap.get("response")
-    return snap.get("http_status") != 200 or (isinstance(response, dict) and bool(response.get("errors")))
+    if snap.get("http_status") != 200 or not isinstance(response, dict):
+        return True
+    return bool(response.get("errors")) or "non_json_body" in response
 
 
 def count_values(value):
@@ -114,7 +121,7 @@ def compare(before, after):
                "changes": [], "unified": ""}
         if a is None or b is None:
             row["status"] = "only in before" if b is None else "only in after"
-        elif same_json(a, b):
+        elif same_json(compared_part(a), compared_part(b)):
             row["status"] = "fails in both" if failed(a) else "identical"
         else:
             row["status"] = "different"

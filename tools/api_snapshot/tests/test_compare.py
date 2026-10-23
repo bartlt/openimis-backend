@@ -96,6 +96,15 @@ class CompareTest(unittest.TestCase):
         code, _, _ = self.run_cli([snap("q", ok)], [snap("q", failing)])
         self.assertEqual(code, 1)
 
+    def test_non_json_body_fails(self):
+        html_page = {"non_json_body": "<html>Server Error</html>"}
+        self.assertEqual(self.status(html_page, html_page)["status"], "fails in both")
+
+    def test_screen_label_not_compared(self):
+        before, after = snap("q", {"data": {"a": 1}}), snap("q", {"data": {"a": 1}})
+        after["screen"] = "renamed screen"
+        self.assertEqual(compare.compare({"q": before}, {"q": after})[0]["status"], "identical")
+
     def test_http_status_change(self):
         rows = compare.compare({"q": snap("q", {}, 200)}, {"q": snap("q", {}, 500)})
         self.assertEqual(rows[0]["changes"][0], ("http_status", 200, 500))
